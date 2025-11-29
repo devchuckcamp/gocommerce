@@ -1,6 +1,32 @@
 # Quick Start Guide
 
-## Installation
+## Prerequisites
+
+- Go 1.21 or higher
+- Docker (for PostgreSQL database)
+
+## Database Setup (Recommended First Step)
+
+```bash
+# 1. Start PostgreSQL
+cd migrations/examples && docker-compose up -d
+
+# 2. Run migrations
+cd postgresql
+cd migrations/examples/postgresql
+go run main.go
+
+# 3. Seed database with test data
+go run seed-products.go
+```
+
+This creates:
+- 6 tables (brands, categories, products, carts, cart_items, orders)
+- 8 brands (Apple, Dell, Lenovo, HP, Samsung, Logitech, Sony, Bose)
+- 8 categories (Electronics, Computers, Laptops, Accessories, etc.)
+- 72 products (22 curated + 50 random)
+
+## Library Installation
 
 ```bash
 go get github.com/devchuckcamp/gocommerce

@@ -69,8 +69,6 @@ tmp/
 
 # Database files (if testing locally)
 *.db
-*.sqlite
-*.sqlite3
 
 # Documentation build artifacts
 /docs/_build/

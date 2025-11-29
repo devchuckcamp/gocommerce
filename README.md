@@ -54,7 +54,33 @@ You implement these for external services:
 
 ## 🚀 Quick Start
 
-### Installation
+### Option 1: PostgreSQL with Docker (Recommended)
+
+```bash
+# 1. Start PostgreSQL
+cd migrations/examples && docker-compose up -d
+
+# 2. Run migrations (creates 6 tables)
+cd postgresql
+go run main.go
+
+# 3. Seed database (8 brands, 8 categories, 72 products)
+go run seed-products.go
+
+# 4. Run sample API (optional)
+cd ../../sample-project
+go run .
+```
+
+This gives you:
+- **6 tables**: brands, categories, products, carts, cart_items, orders
+- **72 products**: MacBook Pro, Dell XPS, iPhone, iPad, Logitech peripherals, etc.
+- **Full relationships**: Products linked to brands and categories
+- **Ready to use**: Start building immediately
+
+See [migrations/examples/DOCKER.md](migrations/examples/DOCKER.md) and [migrations/README.md](migrations/README.md) for details.
+
+### Option 2: Install Library Only
 
 ```bash
 go get github.com/devchuckcamp/gocommerce
@@ -113,8 +139,12 @@ order, _ := orderService.CreateFromCart(ctx, orders.CreateOrderRequest{
 - **[QUICKSTART.md](QUICKSTART.md)** - Get started in 5 minutes
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - Detailed design patterns and decisions
 - **[PACKAGE_SUMMARY.md](PACKAGE_SUMMARY.md)** - Visual guide to all packages
+- **[migrations/README.md](migrations/README.md)** - Database migration system with seeding
+- **[migrations/SUMMARY.md](migrations/SUMMARY.md)** - Quick reference for migrations
+- **[migrations/examples/DOCKER.md](migrations/examples/DOCKER.md)** - PostgreSQL setup with Docker
 - **[examples/usage.go](examples/usage.go)** - Domain usage examples
 - **[examples/http_handlers.go](examples/http_handlers.go)** - HTTP integration patterns
+- **[sample-project/](sample-project/)** - Complete working API server
 
 ## 🏗️ Architecture Highlights
 
@@ -163,11 +193,51 @@ type ProductRepository interface {
 
 ## 🔌 Integration
 
+### Using Migrations in Your Project
+
+The package includes pre-built migrations for a complete e-commerce schema. Use them in your project:
+
+```go
+import "github.com/devchuckcamp/gocommerce/migrations"
+
+func main() {
+    // Connect to database
+    db, _ := sql.Open("postgres", "your-connection-string")
+    
+    // Setup migration manager
+    executor := NewPostgreSQLExecutor(db)  // See examples/
+    repo := migrations.NewPostgreSQLRepository(executor, "gocommerce_migrations")
+    manager := migrations.NewManager(repo, executor)
+    
+    // Use pre-built migrations (6 tables)
+    manager.RegisterMultiple(migrations.PostgreSQLExampleMigrations)
+    
+    // Run migrations
+    if err := manager.Up(context.Background()); err != nil {
+        log.Fatal(err)
+    }
+    
+    // Optional: Seed test data (72 products)
+    seeder := migrations.NewSeeder(executor)
+    seeder.RegisterMultiple(migrations.AllSeeds)
+    seeder.Run(context.Background())
+    
+    // Now use the domain library with database repositories...
+}
+```
+
+See [migrations/README.md](migrations/README.md) for complete integration guide including CLI tools and startup migrations.
+
 ### Monolith
 
 ```go
 func main() {
     db := postgres.Connect()
+    
+    // Run migrations first
+    runMigrations(db)
+    
+    // Then setup services
     cartRepo := postgres.NewCartRepository(db)
     cartService := cart.NewCartService(cartRepo, ...)
     
@@ -181,6 +251,9 @@ func main() {
 ```go
 // Cart Service
 func main() {
+    db := postgres.Connect()
+    runMigrations(db)  // Each service runs its own migrations
+    
     cartService := cart.NewCartService(
         postgres.NewCartRepo(db),
         grpc.NewProductClient(),  // RPC to catalog service
