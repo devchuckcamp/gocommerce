@@ -142,6 +142,7 @@ order, _ := orderService.CreateFromCart(ctx, orders.CreateOrderRequest{
 - **[PACKAGE_SUMMARY.md](PACKAGE_SUMMARY.md)** - Visual guide to all packages
 - **[migrations/README.md](migrations/README.md)** - Database migration system with seeding
 - **[migrations/SUMMARY.md](migrations/SUMMARY.md)** - Quick reference for migrations
+- **[migrations/examples/INTEGRATION.md](migrations/examples/INTEGRATION.md)** - **How to use migrations in your project**
 - **[migrations/examples/DOCKER.md](migrations/examples/DOCKER.md)** - PostgreSQL setup with Docker
 - **[examples/usage.go](examples/usage.go)** - Domain usage examples
 - **[examples/http_handlers.go](examples/http_handlers.go)** - HTTP integration patterns
