@@ -14,7 +14,7 @@ A pure Go domain library for e-commerce applications. No HTTP frameworks, no dat
 ## 📦 Package Structure
 
 ```
-github.com/myorg/ecommerce-domain/
+github.com/devchuckcamp/gocommerce/
 ├── money/          # Money value object (no floating-point errors!)
 ├── catalog/        # Products, variants, categories, brands
 ├── cart/           # Shopping cart with CartService
@@ -25,6 +25,7 @@ github.com/myorg/ecommerce-domain/
 ├── shipping/       # Shipping rate calculation interfaces
 ├── tax/            # Tax calculation interfaces
 ├── user/           # User profiles and addresses
+├── migrations/     # Database migration system with seeding
 └── examples/       # Usage examples and HTTP handler patterns
 ```
 

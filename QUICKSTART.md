@@ -307,9 +307,9 @@ package main
 import (
     "net/http"
     
-    "github.com/myorg/ecommerce-domain/cart"
-    "github.com/myorg/ecommerce-domain/orders"
-    "github.com/myorg/ecommerce-domain/pricing"
+    "github.com/devchuckcamp/gocommerce/cart"
+    "github.com/devchuckcamp/gocommerce/orders"
+    "github.com/devchuckcamp/gocommerce/pricing"
 )
 
 func main() {
