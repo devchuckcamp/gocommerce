@@ -195,6 +195,18 @@ type ProductRepository interface {
 
 ## 🔌 Integration
 
+### 🌟 Production Example with Gin Framework
+
+See **[gocommerce-api](https://github.com/devchuckcamp/gocommerce-api)** for a complete production-ready REST API built with this library using the Gin framework. This example demonstrates:
+
+- Full REST API implementation with Gin
+- PostgreSQL integration with migrations
+- Repository pattern implementations
+- Service layer orchestration
+- Authentication & authorization
+- Docker deployment setup
+- Production best practices
+
 ### Using Migrations in Your Project
 
 The package includes pre-built migrations for a complete e-commerce schema. Use them in your project:
