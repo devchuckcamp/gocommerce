@@ -73,6 +73,8 @@ cd ../../sample-project
 go run .
 ```
 
+Sample API (usage example on with GIN and GORM): https://github.com/devchuckcamp/gocommerce-api
+
 This gives you:
 - **6 tables**: brands, categories, products, carts, cart_items, orders
 - **72 products**: MacBook Pro, Dell XPS, iPhone, iPad, Logitech peripherals, etc.
