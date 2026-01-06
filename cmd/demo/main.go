@@ -11,7 +11,8 @@ import (
 
 func main() {
 	fmt.Println("🛒 E-Commerce Domain Library Demo")
-	fmt.Println("====================================\n")
+	fmt.Println("====================================")
+	fmt.Println()
 
 	// Demo 1: Money Operations
 	fmt.Println("💰 Demo 1: Money Value Object")

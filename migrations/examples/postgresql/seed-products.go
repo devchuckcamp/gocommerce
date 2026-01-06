@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/devchuckcamp/gocommerce/migrations"
 	_ "github.com/lib/pq"
@@ -100,8 +101,33 @@ func scanRows(rows *sql.Rows) ([]map[string]interface{}, error) {
 func main() {
 	ctx := context.Background()
 
-	// Connection string for Docker PostgreSQL setup
-	connStr := "host=localhost port=5432 user=edomain password=edomain dbname=edomain sslmode=disable"
+	connStr := os.Getenv("DB_DSN")
+	if connStr == "" {
+		connStr = os.Getenv("DATABASE_URL")
+	}
+	if connStr == "" {
+		host := os.Getenv("DB_HOST")
+		if host == "" {
+			host = "localhost"
+		}
+		port := os.Getenv("DB_PORT")
+		if port == "" {
+			port = "5432"
+		}
+		user := os.Getenv("DB_USER")
+		if user == "" {
+			user = "edomain"
+		}
+		password := os.Getenv("DB_PASSWORD")
+		if password == "" {
+			password = "edomain"
+		}
+		name := os.Getenv("DB_NAME")
+		if name == "" {
+			name = "edomain"
+		}
+		connStr = fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, name)
+	}
 
 	fmt.Println("🌱 GoCommerce Database Seeder")
 	fmt.Println("========================================")

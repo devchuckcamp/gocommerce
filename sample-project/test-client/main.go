@@ -16,7 +16,8 @@ const (
 
 func main() {
 	fmt.Println("🧪 Testing E-Commerce API")
-	fmt.Println("==========================\n")
+	fmt.Println("==========================")
+	fmt.Println()
 	
 	// Wait for server to be ready
 	time.Sleep(500 * time.Millisecond)

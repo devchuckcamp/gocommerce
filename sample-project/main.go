@@ -1,42 +1,85 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/devchuckcamp/gocommerce/cart"
+	"github.com/devchuckcamp/gocommerce/catalog"
 	"github.com/devchuckcamp/gocommerce/orders"
 	"github.com/devchuckcamp/gocommerce/pricing"
+
+	"sample-ecommerce-api/postgres"
 )
 
 func main() {
-	// Initialize in-memory storage
-	store := NewMemoryStore()
-	
-	// Seed sample products
-	seedProducts(store)
-	
+	usePostgres := os.Getenv("USE_POSTGRES") == "1" || os.Getenv("DATABASE_URL") != ""
+	runMigrations := os.Getenv("RUN_MIGRATIONS") == "1"
+
+	var productStore ProductStore
+	var cartRepo cart.Repository
+	var productRepo catalog.ProductRepository
+	var variantRepo catalog.VariantRepository
+	var orderRepo orders.Repository
+	var promotionRepo pricing.PromotionRepository
+
+	if usePostgres {
+		db, err := postgres.Open()
+		if err != nil {
+			log.Fatalf("failed to open postgres: %v", err)
+		}
+		if err := db.Ping(); err != nil {
+			log.Fatalf("failed to connect to postgres: %v", err)
+		}
+
+		if runMigrations {
+			if err := postgres.RunMigrations(context.Background(), db); err != nil {
+				log.Fatalf("failed to run migrations: %v", err)
+			}
+		}
+
+		pg := postgres.NewStore(db)
+		defer pg.Close()
+		productStore = pg
+		cartRepo = pg.Carts
+		productRepo = pg.Products
+		variantRepo = pg.Variants
+		orderRepo = pg.Orders
+		promotionRepo = pg.Promotions
+	} else {
+		store := NewMemoryStore()
+		seedProducts(store)
+		productStore = store
+		cartRepo = &store.cartRepo
+		productRepo = store
+		variantRepo = &store.variantRepo
+		orderRepo = &store.orderRepo
+		promotionRepo = &store.promotionRepo
+	}
+
 	// Create domain services
 	cartService := cart.NewCartService(
-		&store.cartRepo,
-		store,
-		&store.variantRepo,
+		cartRepo,
+		productRepo,
+		variantRepo,
 		nil, // No inventory service for demo
 		generateID,
 	)
-	
+
 	pricingService := pricing.NewPricingService(
-		&store.promotionRepo,
+		promotionRepo,
 		NewSimpleTaxCalculator(0.0875), // 8.75% tax
 		nil, // No shipping calculator for demo
 	)
-	
+
 	orderService := orders.NewOrderService(
-		&store.orderRepo,
+		orderRepo,
 		pricingService,
 		nil, // No inventory service
 		nil, // No payment gateway
@@ -46,7 +89,7 @@ func main() {
 	
 	// Create HTTP handlers
 	api := &API{
-		store:          store,
+		store:          productStore,
 		cartService:    cartService,
 		pricingService: pricingService,
 		orderService:   orderService,
@@ -82,7 +125,7 @@ func main() {
 }
 
 type API struct {
-	store          *MemoryStore
+	store          ProductStore
 	cartService    cart.Service
 	pricingService pricing.Service
 	orderService   orders.Service
@@ -96,7 +139,11 @@ func (api *API) handleProducts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	products := api.store.ListProducts()
+	products, err := api.store.ListProducts(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	respondJSON(w, products)
 }
 
