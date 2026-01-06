@@ -353,4 +353,137 @@ var PostgreSQLExampleMigrations = []Migration{
 			return exec.Exec(ctx, "DROP TABLE IF EXISTS orders CASCADE")
 		},
 	},
+	{
+		Version: "007",
+		Name:    "extend_orders_table",
+		Up: func(ctx context.Context, exec Executor) error {
+			return exec.Exec(ctx, `
+				ALTER TABLE orders
+					ADD COLUMN IF NOT EXISTS discount_currency VARCHAR(3),
+					ADD COLUMN IF NOT EXISTS tax_currency VARCHAR(3),
+					ADD COLUMN IF NOT EXISTS shipping_currency VARCHAR(3),
+					ADD COLUMN IF NOT EXISTS total_currency VARCHAR(3),
+					ADD COLUMN IF NOT EXISTS shipping_address JSONB,
+					ADD COLUMN IF NOT EXISTS billing_address JSONB,
+					ADD COLUMN IF NOT EXISTS payment_method_id VARCHAR(255),
+					ADD COLUMN IF NOT EXISTS notes TEXT,
+					ADD COLUMN IF NOT EXISTS ip_address VARCHAR(100),
+					ADD COLUMN IF NOT EXISTS user_agent TEXT,
+					ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP,
+					ADD COLUMN IF NOT EXISTS canceled_at TIMESTAMP;
+			`)
+		},
+		Down: func(ctx context.Context, exec Executor) error {
+			// Best-effort rollback (columns may contain data). This intentionally does not drop columns.
+			return nil
+		},
+	},
+	{
+		Version: "008",
+		Name:    "create_order_items_table",
+		Up: func(ctx context.Context, exec Executor) error {
+			return exec.Exec(ctx, `
+				CREATE TABLE IF NOT EXISTS order_items (
+					id VARCHAR(255) PRIMARY KEY,
+					order_id VARCHAR(255) NOT NULL,
+					product_id VARCHAR(255) NOT NULL,
+					variant_id VARCHAR(255),
+					sku VARCHAR(255) NOT NULL,
+					name VARCHAR(255) NOT NULL,
+					unit_price_amount BIGINT NOT NULL,
+					unit_price_currency VARCHAR(3) NOT NULL,
+					quantity INT NOT NULL,
+					discount_amount BIGINT NOT NULL,
+					discount_currency VARCHAR(3) NOT NULL,
+					tax_amount BIGINT NOT NULL,
+					tax_currency VARCHAR(3) NOT NULL,
+					total_amount BIGINT NOT NULL,
+					total_currency VARCHAR(3) NOT NULL,
+					attributes JSONB,
+					created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+					FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+				);
+				CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id);
+			`)
+		},
+		Down: func(ctx context.Context, exec Executor) error {
+			return exec.Exec(ctx, "DROP TABLE IF EXISTS order_items CASCADE")
+		},
+	},
+	{
+		Version: "009",
+		Name:    "create_promotions_table",
+		Up: func(ctx context.Context, exec Executor) error {
+			return exec.Exec(ctx, `
+				CREATE TABLE IF NOT EXISTS promotions (
+					id VARCHAR(255) PRIMARY KEY,
+					code VARCHAR(255) UNIQUE NOT NULL,
+					name VARCHAR(255) NOT NULL,
+					description TEXT,
+					discount_type VARCHAR(50) NOT NULL,
+					value DOUBLE PRECISION NOT NULL,
+					min_purchase_amount BIGINT,
+					min_purchase_currency VARCHAR(3),
+					max_discount_amount BIGINT,
+					max_discount_currency VARCHAR(3),
+					valid_from TIMESTAMP,
+					valid_to TIMESTAMP,
+					is_active BOOLEAN NOT NULL DEFAULT true,
+					usage_limit INT NOT NULL DEFAULT 0,
+					usage_count INT NOT NULL DEFAULT 0,
+					applicable_product_ids JSONB,
+					applicable_category_ids JSONB,
+					excluded_product_ids JSONB,
+					created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+					updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+				);
+				CREATE INDEX IF NOT EXISTS idx_promotions_code ON promotions(code);
+				CREATE INDEX IF NOT EXISTS idx_promotions_is_active ON promotions(is_active);
+			`)
+		},
+		Down: func(ctx context.Context, exec Executor) error {
+			return exec.Exec(ctx, "DROP TABLE IF EXISTS promotions CASCADE")
+		},
+	},
+	{
+		Version: "010",
+		Name:    "create_variants_table",
+		Up: func(ctx context.Context, exec Executor) error {
+			return exec.Exec(ctx, `
+				CREATE TABLE IF NOT EXISTS variants (
+					id VARCHAR(255) PRIMARY KEY,
+					product_id VARCHAR(255) NOT NULL,
+					sku VARCHAR(255) UNIQUE NOT NULL,
+					name VARCHAR(255) NOT NULL,
+					price_amount BIGINT NOT NULL,
+					price_currency VARCHAR(3) NOT NULL,
+					attributes JSONB,
+					images JSONB,
+					is_available BOOLEAN NOT NULL DEFAULT true,
+					created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+					updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+					FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+				);
+				CREATE INDEX IF NOT EXISTS idx_variants_product_id ON variants(product_id);
+				CREATE INDEX IF NOT EXISTS idx_variants_sku ON variants(sku);
+			`)
+		},
+		Down: func(ctx context.Context, exec Executor) error {
+			return exec.Exec(ctx, "DROP TABLE IF EXISTS variants CASCADE")
+		},
+	},
+	{
+		Version: "011",
+		Name:    "extend_cart_items_table",
+		Up: func(ctx context.Context, exec Executor) error {
+			return exec.Exec(ctx, `
+				ALTER TABLE cart_items
+					ADD COLUMN IF NOT EXISTS attributes JSONB;
+			`)
+		},
+		Down: func(ctx context.Context, exec Executor) error {
+			// Best-effort rollback; keep column.
+			return nil
+		},
+	},
 }

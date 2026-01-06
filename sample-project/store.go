@@ -29,6 +29,13 @@ type MemoryStore struct {
 	promotionRepo promotionRepository
 }
 
+// ProductStore is the minimal interface the HTTP layer needs for products.
+// Both MemoryStore and the Postgres store implement this.
+type ProductStore interface {
+	ListProducts(ctx context.Context) ([]*catalog.Product, error)
+	FindProductByID(ctx context.Context, id string) (*catalog.Product, error)
+}
+
 func NewMemoryStore() *MemoryStore {
 	s := &MemoryStore{
 		products:   make(map[string]*catalog.Product),
@@ -107,7 +114,7 @@ func (s *MemoryStore) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
-func (s *MemoryStore) ListProducts() []*catalog.Product {
+func (s *MemoryStore) ListProductsAll() []*catalog.Product {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	
@@ -116,6 +123,11 @@ func (s *MemoryStore) ListProducts() []*catalog.Product {
 		products = append(products, p)
 	}
 	return products
+}
+
+func (s *MemoryStore) ListProducts(ctx context.Context) ([]*catalog.Product, error) {
+	_ = ctx
+	return s.ListProductsAll(), nil
 }
 
 // Variant Repository implementation

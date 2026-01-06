@@ -43,7 +43,16 @@ go run seed-products.go
 
 # 4. Start API server (update to use PostgreSQL)
 cd ../../sample-project
-go run .
+
+# Option A: use default local docker settings
+USE_POSTGRES=1 go run .
+
+# Option B: provide an explicit connection string
+# DATABASE_URL="host=localhost port=5432 user=edomain password=edomain dbname=edomain sslmode=disable" \
+# USE_POSTGRES=1 go run .
+
+# Optional: run migrations automatically on startup
+# RUN_MIGRATIONS=1 USE_POSTGRES=1 go run .
 ```
 
 This gives you:
