@@ -17,6 +17,15 @@ var (
 	ErrOutOfStock       = errors.New("product out of stock")
 )
 
+// PriceResolver resolves effective prices for products/variants.
+// This interface is defined here to avoid import cycles with the pricing package.
+// Implementations should come from the pricing package (e.g., pricing.PriceResolverService).
+type PriceResolver interface {
+	// GetEffectivePrice returns the price for a product/variant at the given time.
+	// If at is nil, uses current time.
+	GetEffectivePrice(ctx context.Context, product *catalog.Product, variant *catalog.Variant, at *time.Time) (money.Money, error)
+}
+
 // Repository defines methods for cart persistence.
 type Repository interface {
 	FindByID(ctx context.Context, id string) (*Cart, error)
@@ -51,6 +60,7 @@ type CartService struct {
 	productRepo      catalog.ProductRepository
 	variantRepo      catalog.VariantRepository
 	inventoryService inventory.Service
+	priceResolver    PriceResolver // Optional: if set, uses dynamic pricing
 	idGenerator      func() string
 }
 
@@ -69,6 +79,14 @@ func NewCartService(
 		inventoryService: inventoryService,
 		idGenerator:      idGenerator,
 	}
+}
+
+// WithPriceResolver sets an optional PriceResolver for dynamic pricing.
+// When set, AddItem will use the price resolver to get the effective price
+// instead of the product's base price.
+func (s *CartService) WithPriceResolver(resolver PriceResolver) *CartService {
+	s.priceResolver = resolver
+	return s
 }
 
 // GetCart retrieves a cart by ID.
@@ -118,42 +136,54 @@ func (s *CartService) AddItem(ctx context.Context, cartID string, req AddItemReq
 	if req.Quantity <= 0 {
 		return nil, ErrInvalidQuantity
 	}
-	
+
 	cart, err := s.repo.FindByID(ctx, cartID)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Fetch product
 	product, err := s.productRepo.FindByID(ctx, req.ProductID)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if !product.IsActive() {
 		return nil, errors.New("product not available")
 	}
-	
+
 	// Check inventory if service available
 	var sku string
 	var price money.Money
-	
+	var variant *catalog.Variant
+
 	if req.VariantID != nil {
-		variant, err := s.variantRepo.FindByID(ctx, *req.VariantID)
+		variant, err = s.variantRepo.FindByID(ctx, *req.VariantID)
 		if err != nil {
 			return nil, err
 		}
 		sku = variant.SKU
-		price = variant.Price
-		
+
 		if !variant.IsAvailable {
 			return nil, errors.New("variant not available")
 		}
 	} else {
 		sku = product.SKU
+	}
+
+	// Resolve effective price
+	// Priority: PriceResolver (if set) > Variant Price > Product BasePrice
+	if s.priceResolver != nil {
+		price, err = s.priceResolver.GetEffectivePrice(ctx, product, variant, nil)
+		if err != nil {
+			return nil, err
+		}
+	} else if variant != nil {
+		price = variant.Price
+	} else {
 		price = product.BasePrice
 	}
-	
+
 	// Check stock availability
 	if s.inventoryService != nil {
 		available, err := s.inventoryService.GetAvailableStock(ctx, sku)
@@ -161,7 +191,7 @@ func (s *CartService) AddItem(ctx context.Context, cartID string, req AddItemReq
 			return nil, ErrOutOfStock
 		}
 	}
-	
+
 	// Add item to cart
 	item := CartItem{
 		ID:         s.idGenerator(),
@@ -174,14 +204,14 @@ func (s *CartService) AddItem(ctx context.Context, cartID string, req AddItemReq
 		Attributes: req.Attributes,
 		AddedAt:    time.Now(),
 	}
-	
+
 	cart.AddItem(item)
-	
+
 	err = s.repo.Save(ctx, cart)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return cart, nil
 }
 

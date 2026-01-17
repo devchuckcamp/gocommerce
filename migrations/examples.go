@@ -486,4 +486,41 @@ var PostgreSQLExampleMigrations = []Migration{
 			return nil
 		},
 	},
+	{
+		Version: "012",
+		Name:    "create_product_prices_table",
+		Up: func(ctx context.Context, exec Executor) error {
+			return exec.Exec(ctx, `
+				CREATE TABLE IF NOT EXISTS product_prices (
+					id VARCHAR(255) PRIMARY KEY,
+					product_id VARCHAR(255) NOT NULL,
+					variant_id VARCHAR(255),
+					price_amount BIGINT NOT NULL,
+					price_currency VARCHAR(3) NOT NULL,
+					valid_from TIMESTAMP,
+					valid_to TIMESTAMP,
+					priority INT NOT NULL DEFAULT 0,
+					price_type VARCHAR(50) NOT NULL DEFAULT 'regular',
+					is_active BOOLEAN NOT NULL DEFAULT true,
+					created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+					updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+					FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+					FOREIGN KEY (variant_id) REFERENCES variants(id) ON DELETE CASCADE
+				);
+				CREATE INDEX IF NOT EXISTS idx_product_prices_product_id ON product_prices(product_id);
+				CREATE INDEX IF NOT EXISTS idx_product_prices_variant_id ON product_prices(variant_id);
+				CREATE INDEX IF NOT EXISTS idx_product_prices_valid_from ON product_prices(valid_from);
+				CREATE INDEX IF NOT EXISTS idx_product_prices_valid_to ON product_prices(valid_to);
+				CREATE INDEX IF NOT EXISTS idx_product_prices_is_active ON product_prices(is_active);
+				CREATE INDEX IF NOT EXISTS idx_product_prices_priority ON product_prices(priority);
+
+				-- Composite index for efficient price lookup
+				CREATE INDEX IF NOT EXISTS idx_product_prices_lookup
+					ON product_prices(product_id, variant_id, is_active, valid_from, valid_to, priority DESC);
+			`)
+		},
+		Down: func(ctx context.Context, exec Executor) error {
+			return exec.Exec(ctx, "DROP TABLE IF EXISTS product_prices CASCADE")
+		},
+	},
 }

@@ -14,21 +14,23 @@ import (
 type Store struct {
 	DB *sql.DB
 
-	Products   *ProductRepository
-	Variants   *VariantRepository
-	Carts      *CartRepository
-	Orders     *OrderRepository
-	Promotions *PromotionRepository
+	Products      *ProductRepository
+	Variants      *VariantRepository
+	Carts         *CartRepository
+	Orders        *OrderRepository
+	Promotions    *PromotionRepository
+	ProductPrices *ProductPriceRepository
 }
 
 func NewStore(db *sql.DB) *Store {
 	return &Store{
-		DB:         db,
-		Products:   NewProductRepository(db),
-		Variants:   NewVariantRepository(db),
-		Carts:      NewCartRepository(db),
-		Orders:     NewOrderRepository(db),
-		Promotions: NewPromotionRepository(db),
+		DB:            db,
+		Products:      NewProductRepository(db),
+		Variants:      NewVariantRepository(db),
+		Carts:         NewCartRepository(db),
+		Orders:        NewOrderRepository(db),
+		Promotions:    NewPromotionRepository(db),
+		ProductPrices: NewProductPriceRepository(db),
 	}
 }
 
@@ -40,10 +42,11 @@ func (s *Store) Close() error {
 }
 
 // Convenience accessors (helps satisfy sample-project wiring).
-func (s *Store) CartRepo() cart.Repository { return s.Carts }
-func (s *Store) ProductRepo() catalog.ProductRepository { return s.Products }
-func (s *Store) OrderRepo() orders.Repository { return s.Orders }
-func (s *Store) PromotionRepo() pricing.PromotionRepository { return s.Promotions }
+func (s *Store) CartRepo() cart.Repository                          { return s.Carts }
+func (s *Store) ProductRepo() catalog.ProductRepository             { return s.Products }
+func (s *Store) OrderRepo() orders.Repository                       { return s.Orders }
+func (s *Store) PromotionRepo() pricing.PromotionRepository         { return s.Promotions }
+func (s *Store) ProductPriceRepo() pricing.ProductPriceRepository   { return s.ProductPrices }
 
 // ProductStore-like helpers for the HTTP API.
 func (s *Store) ListProducts(ctx context.Context) ([]*catalog.Product, error) {
