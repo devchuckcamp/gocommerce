@@ -28,6 +28,7 @@ func main() {
 	var variantRepo catalog.VariantRepository
 	var orderRepo orders.Repository
 	var promotionRepo pricing.PromotionRepository
+	var productPriceRepo pricing.ProductPriceRepository
 
 	if usePostgres {
 		db, err := postgres.Open()
@@ -52,6 +53,7 @@ func main() {
 		variantRepo = pg.Variants
 		orderRepo = pg.Orders
 		promotionRepo = pg.Promotions
+		productPriceRepo = pg.ProductPrices
 	} else {
 		store := NewMemoryStore()
 		seedProducts(store)
@@ -61,6 +63,7 @@ func main() {
 		variantRepo = &store.variantRepo
 		orderRepo = &store.orderRepo
 		promotionRepo = &store.promotionRepo
+		productPriceRepo = nil // Memory store doesn't have product prices yet
 	}
 
 	// Create domain services
@@ -71,6 +74,17 @@ func main() {
 		nil, // No inventory service for demo
 		generateID,
 	)
+
+	// Set up price resolver if PostgreSQL is used (has product prices table)
+	if productPriceRepo != nil {
+		priceResolverService := pricing.NewPriceResolverService(
+			productPriceRepo,
+			productRepo,
+			variantRepo,
+		)
+		cartPriceResolver := pricing.NewCartPriceResolverAdapter(priceResolverService)
+		cartService.WithPriceResolver(cartPriceResolver)
+	}
 
 	pricingService := pricing.NewPricingService(
 		promotionRepo,
