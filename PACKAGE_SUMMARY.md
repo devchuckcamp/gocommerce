@@ -16,9 +16,11 @@ github.com/devchuckcamp/gocommerce/
 │   ├── cart.go                     # Cart aggregate, CartItem
 │   └── service.go                  # CartService implementation
 │
-├── pricing/                        # Pricing Engine
+├── pricing/                        # Pricing domain (unit pricing + totals)
 │   ├── pricing.go                  # PricingResult, Promotion types
-│   └── service.go                  # PricingService implementation
+│   ├── service.go                  # PricingService implementation
+│   ├── product_price.go            # ProductPrice + ProductPriceRepository
+│   └── price_resolver.go           # PriceResolverService + cart adapter
 │
 ├── orders/                         # Order Management Domain
 │   ├── order.go                    # Order aggregate, OrderItem
@@ -130,16 +132,21 @@ github.com/devchuckcamp/gocommerce/
 - `Promotion` - Discount promotion
 - `LineItem` - Item to be priced
 - `AppliedDiscount` - Discount that was applied
+- `ProductPrice` - Product/variant price record with optional validity window
 
 **Service:**
 - `PricingService` - Calculate totals with discounts, tax, shipping
+- `PriceResolverService` - Resolve effective unit prices (time-aware)
 
 **Interfaces:**
 - `PromotionRepository`
+- `ProductPriceRepository`
+- `PriceResolver` (for effective unit pricing)
 
 **Dependencies:**
 - Uses `tax.Calculator`
 - Uses `shipping.RateCalculator`
+- Uses `catalog.ProductRepository` and `catalog.VariantRepository` (for product/variant fallback)
 
 ---
 
@@ -250,7 +257,10 @@ github.com/devchuckcamp/gocommerce/
        │ depends on
        ├─→ catalog.ProductRepository
        ├─→ catalog.VariantRepository
-       └─→ inventory.Service
+   ├─→ inventory.Service
+   └─→ cart.PriceResolver (optional)
+         │ implemented by
+         └─→ pricing.CartPriceResolverAdapter → pricing.PriceResolverService
 
 ┌──────────────────┐
 │ PricingService   │
@@ -259,6 +269,14 @@ github.com/devchuckcamp/gocommerce/
          ├─→ PromotionRepository
          ├─→ tax.Calculator
          └─→ shipping.RateCalculator
+
+┌──────────────────────┐
+│ PriceResolverService │
+└──────────┬───────────┘
+       │ depends on
+       ├─→ ProductPriceRepository
+       ├─→ catalog.ProductRepository
+       └─→ catalog.VariantRepository
 
 ┌──────────────┐
 │ OrderService │
@@ -277,6 +295,7 @@ github.com/devchuckcamp/gocommerce/
    CartService.AddItem()
    - Validates product exists
    - Checks inventory
+   - Resolves unit price (optional PriceResolver)
    - Updates cart
 
 2. User proceeds to checkout
@@ -310,6 +329,7 @@ github.com/devchuckcamp/gocommerce/
 ✓ catalog.BrandRepository
 ✓ orders.Repository
 ✓ pricing.PromotionRepository
+✓ pricing.ProductPriceRepository
 ✓ user.ProfileRepository
 ✓ user.AddressRepository
 ✓ inventory.Repository
@@ -367,9 +387,10 @@ You can extend the library by:
 
 1. **Implementing Interfaces** - Provide your own repositories, calculators, gateways
 2. **Custom Promotions** - Add new discount types to `pricing.Promotion`
-3. **Custom Tax Logic** - Implement `tax.Calculator` with your rules
-4. **Payment Providers** - Implement `payments.Gateway` for Stripe, PayPal, etc.
-5. **Shipping Carriers** - Implement `shipping.RateCalculator` for FedEx, UPS, etc.
+3. **Custom Product Pricing** - Implement `pricing.ProductPriceRepository` and populate `pricing.ProductPrice` rules
+4. **Custom Tax Logic** - Implement `tax.Calculator` with your rules
+5. **Payment Providers** - Implement `payments.Gateway` for Stripe, PayPal, etc.
+6. **Shipping Carriers** - Implement `shipping.RateCalculator` for FedEx, UPS, etc.
 
 ## Testing Strategy
 

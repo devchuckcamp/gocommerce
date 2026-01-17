@@ -11,7 +11,7 @@ github.com/devchuckcamp/gocommerce/
 ├── money/          # Money value object (handles currency correctly)
 ├── catalog/        # Product catalog domain
 ├── cart/           # Shopping cart domain
-├── pricing/        # Pricing engine (discounts, tax, shipping)
+├── pricing/        # Pricing domain (product prices + cart totals)
 ├── orders/         # Order management domain
 ├── inventory/      # Inventory management interfaces
 ├── payments/       # Payment gateway interfaces
@@ -93,9 +93,29 @@ func (c *Cart) Subtotal() money.Money
 
 ### 4. Pricing Domain (`pricing/`)
 
-**Purpose**: Calculate totals with discounts, tax, and shipping.
+**Purpose**: Pricing has two layers:
+- **Effective unit pricing** (product/variant price at a point in time)
+- **Cart totals** (discounts, tax, shipping)
 
-**Core Service**: `PricingService.PriceCart()`
+#### 4.1 Effective Unit Pricing (Product/Variant)
+
+**Key types**:
+- `ProductPrice`: optional date window (`ValidFrom`/`ValidTo`), `Priority`, `PriceType`, `IsActive`
+- `ProductPriceRepository`: persistence interface for price rules
+
+**Core service**: `PriceResolverService`
+
+Resolution priority:
+1. Matching date-range price from `ProductPriceRepository`
+2. Default price rule (no date boundaries)
+3. Variant price (if set)
+4. Product base price
+
+**Cart integration**: the cart package defines a small `cart.PriceResolver` interface to avoid import cycles. The pricing package provides `CartPriceResolverAdapter` to adapt `PriceResolverService` to that signature.
+
+#### 4.2 Cart Totals (Discounts/Tax/Shipping)
+
+**Core service**: `PricingService.PriceCart()`
 
 ```go
 type PricingResult struct {
@@ -117,9 +137,10 @@ type PricingResult struct {
 - Product/category restrictions
 
 **Dependencies**:
-- `TaxCalculator` interface (from `tax/`)
-- `ShippingRateCalculator` interface (from `shipping/`)
+- `tax.Calculator` interface
+- `shipping.RateCalculator` interface
 - `PromotionRepository` interface
+- `ProductPriceRepository` interface (for effective unit pricing)
 
 ### 5. Orders Domain (`orders/`)
 
@@ -282,7 +303,9 @@ Complex operations that span multiple aggregates:
 type CartService struct {
     repo             Repository
     productRepo      catalog.ProductRepository
+    variantRepo      catalog.VariantRepository
     inventoryService inventory.Service
+    priceResolver    PriceResolver // optional dynamic pricing
 }
 
 func (s *CartService) AddItem(ctx, cartID string, req AddItemRequest) (*Cart, error) {
@@ -362,11 +385,15 @@ order, _ := orderService.CreateFromCart(ctx, CreateOrderRequest{
 func main() {
     // Database layer
     db := postgres.Connect()
-    productRepo := postgres.NewProductRepository(db)
-    cartRepo := postgres.NewCartRepository(db)
+    productRepo := /* your catalog.ProductRepository */
+    variantRepo := /* your catalog.VariantRepository */
+    cartRepo := /* your cart.Repository */
+    productPriceRepo := /* your pricing.ProductPriceRepository */
     
     // Domain services
-    cartService := cart.NewCartService(cartRepo, productRepo, ...)
+    resolver := pricing.NewPriceResolverService(productPriceRepo, productRepo, variantRepo)
+    cartService := cart.NewCartService(cartRepo, productRepo, variantRepo, ...)
+    cartService = cartService.WithPriceResolver(pricing.NewCartPriceResolverAdapter(resolver))
     pricingService := pricing.NewPricingService(...)
     orderService := orders.NewOrderService(...)
     
