@@ -155,8 +155,8 @@ func main() {
 	// Create seeder
 	seeder := migrations.NewSeeder(executor)
 
-	// Register all seeds (brands and categories must come first)
-	seeder.RegisterMultiple(migrations.AllSeeds)
+	// Register all seeds including inventory (brands and categories must come first)
+	seeder.RegisterMultiple(migrations.AllSeedsWithInventory)
 
 	// Display available seeds
 	fmt.Println("📋 Available Seeds:")

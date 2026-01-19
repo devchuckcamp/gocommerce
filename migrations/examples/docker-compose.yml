@@ -4,19 +4,58 @@ services:
     container_name: gocommerce-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: edomain
-      POSTGRES_PASSWORD: edomain
-      POSTGRES_DB: edomain
+      POSTGRES_USER: ${DB_USER:-commerce}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-commerce}
+      POSTGRES_DB: ${DB_NAME:-commerce}
       PGDATA: /var/lib/postgresql/data/pgdata
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U edomain -d edomain"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-commerce} -d ${DB_NAME:-commerce}"]
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # Migration and Seeder runner
+  migrate:
+    image: golang:1.22-alpine
+    container_name: gocommerce-migrate
+    working_dir: /app
+    volumes:
+      - ../../../:/app
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: ${DB_USER:-commerce}
+      DB_PASSWORD: ${DB_PASSWORD:-commerce}
+      DB_NAME: ${DB_NAME:-commerce}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: go run migrations/examples/postgresql/main.go
+    profiles:
+      - tools
+
+  seed:
+    image: golang:1.22-alpine
+    container_name: gocommerce-seed
+    working_dir: /app
+    volumes:
+      - ../../../:/app
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: ${DB_USER:-commerce}
+      DB_PASSWORD: ${DB_PASSWORD:-commerce}
+      DB_NAME: ${DB_NAME:-commerce}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: go run migrations/examples/postgresql/seed-products.go
+    profiles:
+      - tools
 
 volumes:
   postgres_data:
